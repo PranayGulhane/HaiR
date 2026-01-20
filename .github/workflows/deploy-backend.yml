@@ -3,7 +3,7 @@ name: Deploy FastAPI to Cloud Run
 on:
   push:
     branches:
-      - feature/adding_cors
+      - main
 
 jobs:
   deploy:
