@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Dashboard from "./components/Dashboard";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
 
@@ -92,6 +93,9 @@ export default function Home() {
       {/* CREATE JOB */}
       <section className="bg-white p-6 rounded-xl shadow space-y-4 max-w-3xl mx-auto">
         <h2 className="text-xl font-semibold">Create Job</h2>
+
+        {/* Dashboard */}
+        <Dashboard />
 
         <input
           className="w-full border p-2 rounded"
@@ -227,7 +231,7 @@ export default function Home() {
                     className="border p-3 rounded bg-gray-50"
                   >
                     <p>
-                      <b>{r.resume_name}</b> — Match Score: {r.match_score}
+                      <b>{r.resume_name}</b>
                     </p>
                     <p className="text-sm text-gray-600">
                       {r.ai_explanation}
