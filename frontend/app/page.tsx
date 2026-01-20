@@ -1,114 +1,244 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import api from "../lib/api";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { useEffect, useState } from "react";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
 
 export default function Home() {
-  const [jobs, setJobs] = useState([]);
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [skills, setSkills] = useState("");
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [file, setFile] = useState(null);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [selectedJob, setSelectedJob] = useState<number | null>(null);
+  const [resumes, setResumes] = useState<any[]>([]);
+  const [editingJob, setEditingJob] = useState<any | null>(null);
+
+  const [newJob, setNewJob] = useState({
+    title: "",
+    description: "",
+    skills: "",
+  });
+
+  // ---------------- FETCH ----------------
 
   const fetchJobs = async () => {
-    const res = await api.get("/jobs");
-    setJobs(res.data);
+    const res = await fetch(`${API_BASE}/jobs`);
+    const data = await res.json();
+    setJobs(data);
+  };
+
+  const fetchResumes = async (jobId: number) => {
+    const res = await fetch(`${API_BASE}/jobs/${jobId}/resumes`);
+    const data = await res.json();
+    setResumes(data);
   };
 
   useEffect(() => {
     fetchJobs();
   }, []);
 
+  // ---------------- JOB CRUD ----------------
+
   const createJob = async () => {
-    if (!title || !desc || !skills) return;
-    await api.post("/jobs", { title, description: desc, skills });
-    setTitle(""); setDesc(""); setSkills("");
+    await fetch(`${API_BASE}/jobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newJob),
+    });
+
+    setNewJob({ title: "", description: "", skills: "" });
     fetchJobs();
   };
 
-  const deleteJob = async (id) => {
-    await api.delete(`/jobs/${id}`);
+  const updateJob = async () => {
+    if (!editingJob) return;
+
+    await fetch(`${API_BASE}/jobs/${editingJob.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: editingJob.title,
+        description: editingJob.description,
+        skills: editingJob.skills,
+      }),
+    });
+
+    setEditingJob(null);
     fetchJobs();
   };
 
-  const uploadResume = async () => {
-    if (!selectedJob || !file) return;
+  const deleteJob = async (id: number) => {
+    await fetch(`${API_BASE}/jobs/${id}`, { method: "DELETE" });
+    fetchJobs();
+  };
+
+  // ---------------- RESUME ----------------
+
+  const uploadResume = async (jobId: number, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    await api.post(`/jobs/${selectedJob}/resumes`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+
+    await fetch(`${API_BASE}/jobs/${jobId}/resumes`, {
+      method: "POST",
+      body: formData,
     });
-    fetchJobs();
+
+    fetchResumes(jobId);
   };
 
-  const chartData = {
-    labels: jobs.map((j) => j.title),
-    datasets: [
-      {
-        label: "First Resume Score",
-        data: jobs.map((j) => j.resumes?.[0]?.match_score || 0),
-        backgroundColor: "rgba(53, 162, 235, 0.5)",
-      },
-    ],
-  };
+  // ---------------- UI ----------------
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">HR AI Job Matcher</h1>
+    <main className="min-h-screen bg-gray-100 p-8 space-y-10">
+      <h1 className="text-3xl font-bold text-center">HR AI Resume Matcher</h1>
 
-      {/* Create Job */}
-      <div className="mb-6 border p-4 rounded shadow">
-        <h2 className="font-semibold mb-2">Create Job</h2>
-        <input placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} className="border p-1 mr-2" />
-        <input placeholder="Description" value={desc} onChange={e => setDesc(e.target.value)} className="border p-1 mr-2" />
-        <input placeholder="Skills" value={skills} onChange={e => setSkills(e.target.value)} className="border p-1 mr-2" />
-        <button onClick={createJob} className="bg-blue-500 text-white px-2 py-1 rounded">Create</button>
-      </div>
+      {/* CREATE JOB */}
+      <section className="bg-white p-6 rounded-xl shadow space-y-4 max-w-3xl mx-auto">
+        <h2 className="text-xl font-semibold">Create Job</h2>
 
-      {/* Job List */}
-      <div className="mb-6 border p-4 rounded shadow">
-        <h2 className="font-semibold mb-2">Jobs</h2>
-        {jobs.map((job) => (
-          <div key={job.id} className="mb-2 p-2 border rounded flex justify-between items-center">
-            <div>
-              <b>{job.title}</b> - {job.skills}
-              <div>Score: {job.resumes?.[0]?.match_score || "N/A"}</div>
-            </div>
-            <div>
-              <button onClick={() => setSelectedJob(job.id)} className="mr-2 bg-yellow-400 px-2 py-1 rounded">Select</button>
-              <button onClick={() => deleteJob(job.id)} className="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
-            </div>
-          </div>
-        ))}
-      </div>
+        <input
+          className="w-full border p-2 rounded"
+          placeholder="Job Title"
+          value={newJob.title}
+          onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
+        />
 
-      {/* Upload Resume */}
-      {selectedJob && (
-        <div className="mb-6 border p-4 rounded shadow">
-          <h2 className="font-semibold mb-2">Upload Resume for Job {selectedJob}</h2>
-          <input type="file" onChange={e => setFile(e.target.files[0])} className="border p-1 mr-2"/>
-          <button onClick={uploadResume} className="bg-green-500 text-white px-2 py-1 rounded">Upload</button>
-        </div>
+        <textarea
+          className="w-full border p-2 rounded"
+          placeholder="Job Description"
+          value={newJob.description}
+          onChange={(e) =>
+            setNewJob({ ...newJob, description: e.target.value })
+          }
+        />
+
+        <textarea
+          className="w-full border p-2 rounded"
+          placeholder="Required Skills"
+          value={newJob.skills}
+          onChange={(e) => setNewJob({ ...newJob, skills: e.target.value })}
+        />
+
+        <button
+          onClick={createJob}
+          className="bg-green-600 text-white px-4 py-2 rounded"
+        >
+          Create Job
+        </button>
+      </section>
+
+      {/* UPDATE JOB */}
+      {editingJob && (
+        <section className="bg-white p-6 rounded-xl shadow space-y-4 max-w-3xl mx-auto">
+          <h2 className="text-xl font-semibold">Update Job</h2>
+
+          <input
+            className="w-full border p-2 rounded"
+            value={editingJob.title}
+            onChange={(e) =>
+              setEditingJob({ ...editingJob, title: e.target.value })
+            }
+          />
+
+          <textarea
+            className="w-full border p-2 rounded"
+            value={editingJob.description}
+            onChange={(e) =>
+              setEditingJob({
+                ...editingJob,
+                description: e.target.value,
+              })
+            }
+          />
+
+          <textarea
+            className="w-full border p-2 rounded"
+            value={editingJob.skills}
+            onChange={(e) =>
+              setEditingJob({ ...editingJob, skills: e.target.value })
+            }
+          />
+
+          <button
+            onClick={updateJob}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Update Job
+          </button>
+        </section>
       )}
 
-      {/* Dashboard */}
-      <div className="border p-4 rounded shadow">
-        <h2 className="font-semibold mb-2">Dashboard (First Resume Score)</h2>
-        <Bar data={chartData}/>
-      </div>
-    </div>
+      {/* JOB LIST */}
+      <section className="max-w-5xl mx-auto space-y-4">
+        {jobs.map((job) => (
+          <div
+            key={job.id}
+            className="bg-white p-6 rounded-xl shadow space-y-3"
+          >
+            <h3 className="text-xl font-semibold">{job.title}</h3>
+            <p className="text-gray-600">{job.description}</p>
+            <p className="text-sm text-gray-500">
+              <b>Skills:</b> {job.skills}
+            </p>
+
+            <div className="flex gap-2 flex-wrap">
+              <label className="bg-yellow-400 px-3 py-1 rounded cursor-pointer">
+                Upload Resume
+                <input
+                  type="file"
+                  hidden
+                  onChange={(e) =>
+                    e.target.files &&
+                    uploadResume(job.id, e.target.files[0])
+                  }
+                />
+              </label>
+
+              <button
+                onClick={() => {
+                  setSelectedJob(job.id);
+                  fetchResumes(job.id);
+                }}
+                className="bg-gray-300 px-3 py-1 rounded"
+              >
+                View Resumes
+              </button>
+
+              <button
+                onClick={() => setEditingJob(job)}
+                className="bg-blue-500 text-white px-3 py-1 rounded"
+              >
+                Edit
+              </button>
+
+              <button
+                onClick={() => deleteJob(job.id)}
+                className="bg-red-500 text-white px-3 py-1 rounded"
+              >
+                Delete
+              </button>
+            </div>
+
+            {/* RESUMES */}
+            {selectedJob === job.id && (
+              <div className="mt-4 space-y-2">
+                <h4 className="font-semibold">Resumes</h4>
+
+                {resumes.map((r) => (
+                  <div
+                    key={r.id}
+                    className="border p-3 rounded bg-gray-50"
+                  >
+                    <p>
+                      <b>{r.resume_name}</b> — Match Score: {r.match_score}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {r.ai_explanation}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </section>
+    </main>
   );
 }
