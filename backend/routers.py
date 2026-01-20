@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+
 
 from database import get_db
 from models import Job, Resume
@@ -97,3 +99,26 @@ def get_resume(resume_id: int, db: Session = Depends(get_db)):
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     return resume
+
+
+# ---------------- DASHBOARD ----------------
+
+@router.get("/dashboard")
+def get_dashboard_metrics(db: Session = Depends(get_db)):
+    jobs_count = db.query(Job).count()
+    resumes_count = db.query(Resume).count()
+    avg_score = db.query(func.avg(Resume.match_score)).scalar() or 0
+
+    resumes_per_job = (
+        db.query(Job.title, func.count(Resume.id))
+        .join(Resume, Resume.job_id == Job.id, isouter=True)
+        .group_by(Job.id)
+        .all()
+    )
+
+    return {
+        "jobs_count": jobs_count,
+        "resumes_count": resumes_count,
+        "avg_score": round(avg_score, 2),
+        "resumes_per_job": [{"title": r[0], "count": r[1]} for r in resumes_per_job]
+    }
