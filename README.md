@@ -58,15 +58,3 @@ A simple web application for HR teams to create job postings, upload resumes, an
 4. **Deployment**  
    - Backend deployed on **GCP Cloud Run**  
    - Frontend deployed on **Vercel**, environment variable `NEXT_PUBLIC_API_BASE` points to Cloud Run URL  
-
----
-
-## Installation & Local Setup
-
-### Backend
-
-1. Clone the repository:
-
-```bash
-git clone <repo-url>
-cd <repo-folder>/backend
